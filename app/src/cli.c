@@ -56,6 +56,7 @@ enum {
     OPT_NO_CLEANUP,
     OPT_PRINT_FPS,
     OPT_NO_POWER_ON,
+    OPT_NO_WINDOW_BORDERLESS,
     OPT_VIDEO_CODEC,
     OPT_NO_AUDIO,
     OPT_AUDIO_BIT_RATE,
@@ -667,6 +668,12 @@ static const struct sc_option options[] = {
         .longopt_id = OPT_NO_POWER_ON,
         .longopt = "no-power-on",
         .text = "Do not power on the device on start.",
+    },
+    {
+        .longopt_id = OPT_NO_WINDOW_BORDERLESS,
+        .longopt = "no-window-borderless",
+        .text = "Keep the default window decorations (borders are disabled "
+                "by default).",
     },
     {
         .longopt_id = OPT_NO_TERMINAL_TITLE,
@@ -2655,14 +2662,18 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 opts->push_target = optarg;
                 break;
             case OPT_PREFER_TEXT:
-                if (opts->key_inject_mode != SC_KEY_INJECT_MODE_MIXED) {
+                if (opts->key_inject_mode != SC_KEY_INJECT_MODE_MIXED
+                        && opts->key_inject_mode
+                                != SC_KEY_INJECT_MODE_AUTO) {
                     LOGE("--prefer-text is incompatible with --raw-key-events");
                     return false;
                 }
                 opts->key_inject_mode = SC_KEY_INJECT_MODE_TEXT;
                 break;
             case OPT_RAW_KEY_EVENTS:
-                if (opts->key_inject_mode != SC_KEY_INJECT_MODE_MIXED) {
+                if (opts->key_inject_mode != SC_KEY_INJECT_MODE_MIXED
+                        && opts->key_inject_mode
+                                != SC_KEY_INJECT_MODE_AUTO) {
                     LOGE("--prefer-text is incompatible with --raw-key-events");
                     return false;
                 }
@@ -2751,6 +2762,9 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
                 break;
             case OPT_NO_POWER_ON:
                 opts->power_on = false;
+                break;
+            case OPT_NO_WINDOW_BORDERLESS:
+                opts->window_borderless = false;
                 break;
             case OPT_PRINT_FPS:
                 opts->start_fps_counter = true;
@@ -3175,6 +3189,16 @@ parse_args_with_getopt(struct scrcpy_cli_args *args, int argc, char *argv[],
             LOGE("Cannot not disable all inputs in OTG mode.");
             return false;
         }
+    }
+
+    // Resolve the automatic key inject mode to its concrete value.
+    // TEXT supports all Unicode text input (e.g. Farsi); keep MIXED for
+    // non-SDK keyboards, which do not process text events at all.
+    if (opts->key_inject_mode == SC_KEY_INJECT_MODE_AUTO) {
+        opts->key_inject_mode =
+                opts->keyboard_input_mode == SC_KEYBOARD_INPUT_MODE_SDK
+                        ? SC_KEY_INJECT_MODE_TEXT
+                        : SC_KEY_INJECT_MODE_MIXED;
     }
 
     if (opts->keyboard_input_mode != SC_KEYBOARD_INPUT_MODE_SDK) {

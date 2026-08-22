@@ -200,13 +200,17 @@ struct sc_mouse_bindings {
 };
 
 enum sc_key_inject_mode {
+    // Resolve to the default mode after option parsing (TEXT).
+    SC_KEY_INJECT_MODE_AUTO,
+
     // Inject special keys, letters and space as key events.
     // Inject numbers and punctuation as text events.
-    // This is the default mode.
     SC_KEY_INJECT_MODE_MIXED,
 
     // Inject special keys as key events.
     // Inject letters and space, numbers and punctuation as text events.
+    // This is the default mode: it supports non-ASCII text input (e.g.
+    // Farsi) via the text path instead of leaking physical keycodes.
     SC_KEY_INJECT_MODE_TEXT,
 
     // Inject everything as key events.

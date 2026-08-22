@@ -38,6 +38,7 @@ struct sc_screen {
     bool video;
     bool camera;
     bool window_aspect_ratio_lock;
+    bool window_borderless;
     bool flex_display;
 
     struct sc_controller *controller;

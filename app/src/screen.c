@@ -9,6 +9,9 @@
 #include "options.h"
 #include "util/log.h"
 #include "util/sdl.h"
+#ifdef _WIN32
+# include "sys/win/window.h"
+#endif
 
 #define DISPLAY_MARGINS 96
 
@@ -498,6 +501,7 @@ sc_screen_init(struct sc_screen *screen,
     screen->window_aspect_ratio_lock = params->window_aspect_ratio_lock;
     screen->render_fit = params->render_fit;
     screen->flex_display = params->flex_display;
+    screen->window_borderless = params->window_borderless;
 
     screen->bg.r = (params->background_color >> 16) & 0xFF;
     screen->bg.g = (params->background_color >> 8) & 0xFF;
@@ -734,6 +738,13 @@ error_destroy_mutex:
 
 static void
 sc_screen_show_initial_window(struct sc_screen *screen) {
+#ifdef _WIN32
+    if (screen->window_borderless) {
+        // Subclass early so drag-move works from the very first frame
+        sc_win_enable_drag_move(screen->window);
+    }
+#endif
+
     int x = screen->req.x != SC_WINDOW_POSITION_UNDEFINED
           ? screen->req.x : (int) SDL_WINDOWPOS_CENTERED;
     int y = screen->req.y != SC_WINDOW_POSITION_UNDEFINED
@@ -770,6 +781,14 @@ sc_screen_show_initial_window(struct sc_screen *screen) {
 
     screen->window_shown = true;
     sc_sdl_show_window(screen->window);
+
+    // Rounded corners for the "windowless" look on Windows 11+
+#ifdef _WIN32
+    if (screen->window_borderless) {
+        sc_win_set_window_rounded_corners(screen->window, true);
+    }
+#endif
+
     sc_screen_update_content_rect(screen);
 }
 

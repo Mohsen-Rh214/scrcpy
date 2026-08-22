@@ -82,6 +82,7 @@ if host_machine.system() == 'windows'
         'src/util/command.c',
         'src/sys/win/file.c',
         'src/sys/win/process.c',
+        'src/sys/win/window.c',
         windows.compile_resources('scrcpy-windows.rc'),
     ]
     feature_test_macros += [
@@ -139,8 +140,10 @@ if usb_support
 endif
 
 if host_machine.system() == 'windows'
-    dependencies += cc.find_library('mingw32')
+    dependencies += cc.find_library('mingw32', required: false)
     dependencies += cc.find_library('ws2_32')
+    dependencies += cc.find_library('dwmapi')
+    dependencies += cc.find_library('comctl32')
 endif
 
 check_functions = [

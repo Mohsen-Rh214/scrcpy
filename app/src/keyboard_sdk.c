@@ -11,6 +11,7 @@
 #include "control_msg.h"
 #include "controller.h"
 #include "input_events.h"
+#include "util/acksync.h"
 #include "util/intmap.h"
 #include "util/log.h"
 
@@ -314,15 +315,42 @@ sc_key_processor_process_text(struct sc_key_processor *kp,
         }
     }
 
-    struct sc_control_msg msg;
-    msg.type = SC_CONTROL_MSG_TYPE_INJECT_TEXT;
-    msg.inject_text.text = strdup(event->text);
-    if (!msg.inject_text.text) {
+    bool ascii_only = true;
+    for (const unsigned char *p = (const unsigned char *) event->text;
+            *p; ++p) {
+        if (*p & 0x80) {
+            ascii_only = false;
+            break;
+        }
+    }
+
+    char *text = strdup(event->text);
+    if (!text) {
         LOGW("Could not strdup input text");
         return;
     }
+
+    struct sc_control_msg msg;
+    if (ascii_only) {
+        // Fast path: scrcpy's text injection handles ASCII reliably.
+        msg.type = SC_CONTROL_MSG_TYPE_INJECT_TEXT;
+        msg.inject_text.text = text;
+    } else {
+        // Non-ASCII path: KeyCharacterMap.getEvents() cannot map most
+        // non-ASCII characters (e.g. Farsi/Arabic/CJK), so INJECT_TEXT
+        // would silently drop them ("Could not inject char u+...").
+        // Route them via SET_CLIPBOARD + paste instead, which commits
+        // arbitrary Unicode into the focused input field. The device
+        // clipboard is intentionally not restored: typing replaces its
+        // content anyway on every use of this path.
+        msg.type = SC_CONTROL_MSG_TYPE_SET_CLIPBOARD;
+        msg.set_clipboard.sequence = SC_SEQUENCE_INVALID;
+        msg.set_clipboard.text = text;
+        msg.set_clipboard.paste = true;
+    }
+
     if (!sc_controller_push_msg(kb->controller, &msg)) {
-        free(msg.inject_text.text);
+        free(text);
         LOGW("Could not request 'inject text'");
     }
 }
